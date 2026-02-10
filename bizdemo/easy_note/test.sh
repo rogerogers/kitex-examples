@@ -1,4 +1,5 @@
 #!/bin/bash
+set -ex
 
 # 设置工作目录为项目目录
 cd ./
@@ -19,35 +20,35 @@ cd - > /dev/null || exit
 # 启动 rpc note server
 
 cd "$REPO_PATH/cmd/note" || exit
-go run . > /dev/null 2>&1 &
+go run . > /dev/stdout 2>&1 &
 note_server_pid=$!
 cd - > /dev/null || exit
 
 
 # 等待 server 启动
-sleep 1
+sleep 3
 
 # 启动 rpc stock server
 
 cd "$REPO_PATH/cmd/user" || exit
-go run . > /dev/null 2>&1 &
+go run . > /dev/stdout 2>&1 &
 user_server_pid=$!
 cd - > /dev/null || exit
 
 
 # 等待 server 启动
-sleep 1
+sleep 3
 
 # 启动 hertx_server
 
 cd "$REPO_PATH/cmd/api" || exit
-go run main.go > /dev/null 2>&1 &
+go run main.go > /dev/stdout 2>&1 &
 server_pid=$!
 cd - > /dev/null || exit
 
 
 # 等待 client 启动
-sleep 1
+sleep 3
 
 # 检查 server 和 client 是否仍在运行
 if kill -0 $note_server_pid && kill -0 $user_server_pid && kill -0 $server_pid; then
