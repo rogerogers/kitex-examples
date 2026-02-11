@@ -4,6 +4,8 @@
 cd ./
 
 REPO_PATH="."
+export GOPATH=$(go env GOPATH)
+export GOCACHE=$(go env GOCACHE)
 
 # 初始化状态变量
 status=0
@@ -13,60 +15,30 @@ echo "---------------------------------------"
 echo "Running project: $project"
 
 cd "$REPO_PATH" || exit
-docker compose up -d --wait
-cd - > /dev/null || exit
 
-# 启动 rpc note server
+# 构建并启动所有容器，等待服务健康
+echo "Building and starting containers..."
+docker compose up --build -d --wait
 
-cd "$REPO_PATH/cmd/note" || exit
-go run . > /dev/null 2>&1 &
-note_server_pid=$!
-cd - > /dev/null || exit
-
-
-# 等待 server 启动
-sleep 3
-
-# 启动 rpc stock server
-
-cd "$REPO_PATH/cmd/user" || exit
-go run . > /dev/null 2>&1 &
-user_server_pid=$!
-cd - > /dev/null || exit
-
-
-# 等待 server 启动
-sleep 3
-
-# 启动 hertx_server
-
-cd "$REPO_PATH/cmd/api" || exit
-go run main.go > /dev/null 2>&1 &
-server_pid=$!
-cd - > /dev/null || exit
-
-
-# 等待 client 启动
-sleep 3
-
-# 检查 server 和 client 是否仍在运行
-if kill -0 $note_server_pid && kill -0 $user_server_pid && kill -0 $server_pid; then
-    echo "Project run successfully: $project"
-    echo "---------------------------------------"
-else
-    echo "Project failed to run: $project"
-    echo "---------------------------------------"
+# 检查所有服务是否健康
+# 检查所有服务是否健康
+unhealthy_services=$(docker compose ps --format json | jq -r 'select(.Health != "healthy") | .Service')
+if [ -n "$unhealthy_services" ]; then
+    echo "Some services are not healthy: $unhealthy_services"
+    docker compose logs
     status=1
+else
+    echo "All services are running healthily!"
+    echo "Project run successfully: $project"
 fi
 
-# 杀死 server 和 client
-kill -9 $user_server_pid $note_server_pid $server_pid $(lsof -t -i:8888)
-
 # 停止并删除所有容器
-cd "$REPO_PATH" || exit
+echo "Cleaning up containers..."
 docker compose down
+
 cd - > /dev/null || exit
 
+echo "---------------------------------------"
 
 # 设置脚本的退出状态
 exit $status

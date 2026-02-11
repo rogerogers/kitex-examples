@@ -18,8 +18,6 @@ services:
     image: "mysql:8"
     volumes:
       - ./pkg/configs/sql:/docker-entrypoint-initdb.d
-    ports:
-      - 9910:3306
     environment:
       - MYSQL_DATABASE=gorm
       - MYSQL_USER=gorm
@@ -36,8 +34,6 @@ services:
     environment:
       - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
       - ETCD_ADVERTISE_CLIENT_URLS=http://0.0.0.0:2379
-    ports:
-      - 2379:2379
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"] # The health check command
       interval: 5s
@@ -46,6 +42,86 @@ services:
       start_period: 15s
   jaeger:
     image: jaegertracing/all-in-one:latest
-    ports:
-      - "6831:6831/udp"
-      - "16686:16686"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "14268"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # 用户服务
+  user:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - SERVICE=user
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "user", "8889"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    environment:
+      - MYSQL_IP=mysql
+      - ETCD_IP=etcd
+      - JAEGER_AGENT_HOST=jaeger
+
+  # 笔记服务
+  note:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - SERVICE=note
+    depends_on:
+      mysql:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "note", "8888"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    environment:
+      - MYSQL_IP=mysql
+      - ETCD_IP=etcd
+      - JAEGER_AGENT_HOST=jaeger
+
+  # API服务
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - SERVICE=api
+    depends_on:
+      user:
+        condition: service_healthy
+      note:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "api", "8080"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    environment:
+      - MYSQL_IP=mysql
+      - ETCD_IP=etcd
+      - JAEGER_AGENT_HOST=jaeger

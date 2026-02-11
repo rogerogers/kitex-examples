@@ -31,6 +31,6 @@ const (
 )
 
 var (
-	MySQLDefaultDSN = "gorm:gorm@tcp(" + GetIp("MysqlIp") + ":9910)/gorm?charset=utf8&parseTime=True&loc=Local"
-	EtcdAddress     = GetIp("EtcdIp") + ":2379"
+	MySQLDefaultDSN = "gorm:gorm@tcp(" + GetIp("MYSQL_IP") + ":3306)/gorm?charset=utf8&parseTime=True&loc=Local"
+	EtcdAddress     = GetIp("ETCD_IP") + ":2379"
 )
